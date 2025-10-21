@@ -5,11 +5,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const CREATOR_NAME = "**Alishba**";
 
 // Supported model list
-const MODEL_OPTIONS = [ "gemini-2.0-flash"];
+const MODEL_OPTIONS = ["gemini-2.0-flash"];
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    const { messages }: { messages: { content: string }[] } = await req.json();
     const lastMsgRaw = messages[messages.length - 1]?.content || "";
     const lastMsg = lastMsgRaw.toLowerCase();
 
@@ -28,8 +28,8 @@ export async function POST(req: Request) {
     }
 
     // 🧠 Try models in sequence
-    let reply = null;
-    let lastError = null;
+    let reply: string | null = null;
+    let lastError: string | null = null;
 
     for (const modelName of MODEL_OPTIONS) {
       try {
@@ -37,9 +37,11 @@ export async function POST(req: Request) {
         const result = await model.generateContent(lastMsgRaw);
         reply = result.response.text();
         break; // success
-      } catch (err: any) {
-        lastError = err?.message;
-        console.warn(`Model ${modelName} failed:`, lastError);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Unknown error occurred";
+        lastError = message;
+        console.warn(`Model ${modelName} failed:`, message);
         continue;
       }
     }
@@ -49,8 +51,9 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ reply });
-  } catch (err: any) {
-    console.error("Gemini final error:", err?.message || err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Gemini final error:", message);
     return NextResponse.json(
       { reply: "⚠️ Gemini service unavailable or invalid model." },
       { status: 503 }
