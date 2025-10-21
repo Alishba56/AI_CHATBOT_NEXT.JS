@@ -6,11 +6,9 @@ import { useState } from "react";
 
 export default function MessageBubble({
   message,
-  index,
   darkMode,
 }: {
   message: { role: string; content: string };
-  index: number;
   darkMode: boolean;
 }) {
   const [copied, setCopied] = useState(false);
@@ -30,23 +28,23 @@ export default function MessageBubble({
           ? "bg-gray-800 text-gray-200"
           : "bg-gray-200 text-gray-900"
       }`}
->
-              <ReactMarkdown
-                components={{
-                  strong: ({ children }) => (
-                    <strong className="text-yellow-400 font-semibold">{children}</strong>
-                  ),
-                  em: ({ children }) => <em className="italic text-blue-300">{children}</em>,
-                  code: ({ children }) => (
-                    <code className="bg-gray-700 px-1 py-0.5 rounded text-sm font-mono text-green-300">
-                      {children}
-                    </code>
-                  ),
-                  p: ({ children }) => <span className="font-normal">{children}</span>,
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
+    >
+      <ReactMarkdown
+        components={{
+          strong: ({ children }) => (
+            <strong className="text-yellow-400 font-semibold">{children}</strong>
+          ),
+          em: ({ children }) => <em className="italic text-blue-300">{children}</em>,
+          code: ({ children }) => (
+            <code className="bg-gray-700 px-1 py-0.5 rounded text-sm font-mono text-green-300">
+              {children}
+            </code>
+          ),
+          p: ({ children }) => <span className="font-normal">{children}</span>,
+        }}
+      >
+        {message.content}
+      </ReactMarkdown>
 
       {message.role === "assistant" && (
         <button

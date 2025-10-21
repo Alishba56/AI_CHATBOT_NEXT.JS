@@ -1,40 +1,74 @@
 "use client";
 
+// ✅ Fix for SpeechRecognition types (for TypeScript)
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any;
+    SpeechRecognition: any;
+  }
+
+  interface SpeechRecognitionEvent extends Event {
+    results: {
+      [index: number]: {
+        [index: number]: { transcript: string };
+      };
+    };
+  }
+
+  interface SpeechRecognition {
+    lang: string;
+    interimResults: boolean;
+    onstart: (() => void) | null;
+    onend: (() => void) | null;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    start: () => void;
+    stop: () => void;
+  }
+}
+
 import { useState, useRef } from "react";
-import { Mic, Send, Loader2 } from "lucide-react";
+import { Mic, Send } from "lucide-react";
+
+type Message = {
+  role: string;
+  content: string;
+};
+
+type ChatInputProps = {
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  darkMode: boolean;
+  setLoading: (value: boolean) => void;
+};
 
 export default function ChatInput({
   messages,
   setMessages,
   darkMode,
-  setLoading, // ✅ new prop
-}: {
-  messages: { role: string; content: string }[];
-  setMessages: React.Dispatch<
-    React.SetStateAction<{ role: string; content: string }[]>
-  >;
-  darkMode: boolean;
-  setLoading: (value: boolean) => void; // ✅ added type
-}) {
+  setLoading,
+}: ChatInputProps) {
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // 🎤 Start voice recognition
   const startListening = () => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Speech recognition not supported.");
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition not supported in this browser.");
       return;
     }
 
-    const recognition = new (window as any).webkitSpeechRecognition();
+    const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = false;
 
     recognition.onstart = () => setListening(true);
     recognition.onend = () => setListening(false);
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       setInput(transcript);
       setTimeout(() => sendMessage(), 100);
@@ -48,10 +82,10 @@ export default function ChatInput({
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMsg = { role: "user", content: input };
+    const newMsg: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
-    setLoading(true); 
+    setLoading(true);
 
     try {
       const res = await fetch("/api/chat", {
@@ -60,20 +94,24 @@ export default function ChatInput({
         body: JSON.stringify({ messages: [...messages, newMsg] }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { reply: string };
 
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: data.reply },
       ]);
-    } catch (error) {
-      console.error("Error:", error);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "⚠️ Unable to connect to the server.";
+      console.error("Error:", message);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "⚠️ Unable to connect to the server." },
+        { role: "assistant", content: message },
       ]);
     } finally {
-      setLoading(false); // ✅ Stop typing animation
+      setLoading(false);
     }
   };
 
