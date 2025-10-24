@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const CREATOR_NAME = "**Alishba**";
+const CREATOR_NAME = "**Alishba-Shahzad**";
 
 // Supported model list
 const MODEL_OPTIONS = ["gemini-2.0-flash"];
