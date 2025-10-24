@@ -32,7 +32,7 @@ export default function ChatMessages({
       className="flex-1 overflow-y-auto p-4 space-y-3   scrollbar-hidden transform-none"
     >
       {messages.map((msg, i) => (
-        <MessageBubble key={i} message={msg} index={i} darkMode={darkMode} />
+<MessageBubble key={i} message={msg} darkMode={darkMode} />
       ))}
 
       {loading && (

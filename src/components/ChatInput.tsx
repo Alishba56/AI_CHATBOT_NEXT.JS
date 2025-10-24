@@ -1,10 +1,10 @@
 "use client";
 
-// ✅ Fix for SpeechRecognition types (for TypeScript)
+/* ✅ Fixed SpeechRecognition declarations (type + value safe) */
 declare global {
   interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+    SpeechRecognition?: new () => SpeechRecognition;
   }
 
   interface SpeechRecognitionEvent extends Event {
@@ -18,6 +18,7 @@ declare global {
   interface SpeechRecognition {
     lang: string;
     interimResults: boolean;
+    continuous?: boolean;
     onstart: (() => void) | null;
     onend: (() => void) | null;
     onresult: ((event: SpeechRecognitionEvent) => void) | null;
@@ -27,7 +28,7 @@ declare global {
 }
 
 import { useState, useRef } from "react";
-import { Mic, Send } from "lucide-react";
+import { Mic, Send, Globe2, Volume2 } from "lucide-react";
 
 type Message = {
   role: string;
@@ -49,33 +50,64 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
+  const [language, setLanguage] = useState<"en-US" | "ur-PK">("en-US");
+  const [voiceOn, setVoiceOn] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const silenceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // 🎤 Start voice recognition
+  // 🎙️ Start voice recognition
   const startListening = () => {
-    const SpeechRecognition =
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognitionConstructor =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionConstructor) {
       alert("Speech recognition not supported in this browser.");
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
+    const recognition = new SpeechRecognitionConstructor();
+    recognition.lang = language;
     recognition.interimResults = false;
+    recognition.continuous = true;
 
-    recognition.onstart = () => setListening(true);
+    recognition.onstart = () => {
+      setListening(true);
+      resetSilenceTimer(recognition);
+    };
+
     recognition.onend = () => setListening(false);
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       setInput(transcript);
-      setTimeout(() => sendMessage(), 100);
+      resetSilenceTimer(recognition);
+      setTimeout(() => sendMessage(), 200);
     };
 
     recognitionRef.current = recognition;
     recognition.start();
+  };
+
+  // 🕐 Auto-stop after silence
+  const resetSilenceTimer = (recognition: SpeechRecognition) => {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    silenceTimer.current = setTimeout(() => {
+      recognition.stop();
+    }, 5000);
+  };
+
+  // 🗣️ Speak bot's reply aloud
+  const speakText = (text: string) => {
+    if (!voiceOn) return;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = language;
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      speechSynthesis.speak(utterance);
+    }
   };
 
   // 📨 Send message
@@ -100,12 +132,14 @@ export default function ChatInput({
         ...prev,
         { role: "assistant", content: data.reply },
       ]);
+
+      // 🗣️ Speak the assistant's reply
+      speakText(data.reply);
     } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
           : "⚠️ Unable to connect to the server.";
-      console.error("Error:", message);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: message },
@@ -115,12 +149,50 @@ export default function ChatInput({
     }
   };
 
+  // 🌐 Switch language
+  const toggleLanguage = () => {
+    setLanguage((prev) => (prev === "en-US" ? "ur-PK" : "en-US"));
+  };
+
+  // 🔊 Toggle voice output
+  const toggleVoice = () => {
+    setVoiceOn((prev) => !prev);
+  };
+
   return (
     <div
       className={`flex gap-2 items-end p-4 border-t ${
         darkMode ? "border-gray-700" : "border-gray-300"
       }`}
     >
+      {/* 🌐 Language Switch */}
+      <button
+        onClick={toggleLanguage}
+        title="Switch language"
+        className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all ${
+          darkMode
+            ? "bg-gray-700 hover:bg-gray-600 text-white"
+            : "bg-gray-300 hover:bg-gray-400 text-gray-900"
+        }`}
+      >
+        <Globe2 className="w-5 h-5" />
+      </button>
+
+      {/* 🔊 Voice Toggle */}
+      <button
+        onClick={toggleVoice}
+        title={voiceOn ? "Mute voice" : "Enable voice"}
+        className={`h-10 w-10 flex items-center justify-center rounded-xl transition-all ${
+          voiceOn
+            ? "bg-green-600 hover:bg-green-700 text-white"
+            : darkMode
+            ? "bg-gray-700 hover:bg-gray-600 text-white"
+            : "bg-gray-300 hover:bg-gray-400 text-gray-900"
+        }`}
+      >
+        <Volume2 className="w-5 h-5" />
+      </button>
+
       {/* 🎤 Mic */}
       <button
         onClick={startListening}
@@ -144,12 +216,16 @@ export default function ChatInput({
             ? "bg-gray-900 border-gray-700 text-gray-100 focus:ring-blue-500"
             : "bg-white border-gray-300 text-gray-900 focus:ring-blue-400"
         }`}
-        placeholder={listening ? "Listening..." : "Type a message..."}
+        placeholder={
+          listening
+            ? `Listening (${language === "en-US" ? "English" : "Urdu"})...`
+            : "Type a message..."
+        }
         value={input}
         onChange={(e) => {
           setInput(e.target.value);
           e.target.style.height = "auto";
-          e.target.style.height = e.target.scrollHeight + "px";
+          e.target.style.height = `${e.target.scrollHeight}px`;
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
