@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const CREATOR_NAME = "**Alishba-Shahzad**";
 
 // Supported model list
-const MODEL_OPTIONS = ["gemini-2.0-flash"];
+const MODEL_OPTIONS = ["gemini-2.5-flash"];
 
 export async function POST(req: Request) {
   try {
