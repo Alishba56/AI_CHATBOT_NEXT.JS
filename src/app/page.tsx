@@ -8,35 +8,41 @@ import { useState } from "react";
 export default function ChatBox() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [darkMode, setDarkMode] = useState(true);
-  const [loading, setLoading] = useState(false); // ✅ added this state
+  const [loading, setLoading] = useState(false);
+
+  const handleSelectSuggestion = async (text: string) => {
+    const newMsg = { role: "user" as const, content: text };
+    setMessages((prev) => [...prev, newMsg]);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, newMsg] }),
+      });
+      const data = (await res.json()) as { reply: string };
+      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Unable to connect to the server." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div
-      className={`${
-        darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-100 text-gray-900"
-      } flex justify-center items-center min-h-screen p-4 transition-colors duration-300`}
-    >
-      <div
-        className={`flex flex-col w-full max-w-5xl h-[90vh] rounded-2xl shadow-xl border ${
-          darkMode ? "bg-[#0f172a] border-gray-700" : "bg-white border-gray-300"
-        } transition-colors duration-300`}
-      >
-        {/* Header */}
+    <div className="h-dvh w-dvw bg-[#0a0a0f] bg-grid flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl h-full max-h-[860px] rounded-2xl bg-[#0e0e15] border border-white/[0.06] shadow-2xl flex flex-col overflow-hidden">
         <ChatHeader darkMode={darkMode} setDarkMode={setDarkMode} />
-
-        {/* Messages */}
         <ChatMessages
           messages={messages}
-          darkMode={darkMode}
-          loading={loading} // ✅ now it exists
+          loading={loading}
+          onSelectSuggestion={handleSelectSuggestion}
         />
-
-    <ChatInput
-  messages={messages}
-  setMessages={setMessages}
-  darkMode={darkMode}
-  setLoading={setLoading} // ✅ pass from ChatBox
-/>
+        <ChatInput
+          messages={messages}
+          setMessages={setMessages}
+          setLoading={setLoading}
+        />
       </div>
     </div>
   );
